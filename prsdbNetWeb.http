@@ -1,0 +1,6 @@
+@prsdbNetWeb_HostAddress = http://localhost:5111
+
+GET {{prsdbNetWeb_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
