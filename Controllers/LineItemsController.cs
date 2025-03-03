@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.CodeAnalysis.Elfie.Serialization;
 using Microsoft.EntityFrameworkCore;
 using prsdbNetWeb.Models;
 
@@ -60,7 +62,9 @@ namespace prsdbNetWeb.Controllers
 
             try
             {
+                
                 await _context.SaveChangesAsync();
+                await RecalculateTotal(lineItem.RequestId);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -84,6 +88,7 @@ namespace prsdbNetWeb.Controllers
         {
             _context.LineItems.Add(lineItem);
             await _context.SaveChangesAsync();
+            await RecalculateTotal(lineItem.RequestId);
 
             return CreatedAtAction("GetLineItemById", new { id = lineItem.Id }, lineItem);
         }
@@ -100,9 +105,52 @@ namespace prsdbNetWeb.Controllers
 
             _context.LineItems.Remove(lineItem);
             await _context.SaveChangesAsync();
+            await RecalculateTotal(lineItem.RequestId);
 
             return NoContent();
         }
+
+        [HttpGet("lines-for-req/{reqId}")]
+        public async Task<ActionResult<IEnumerable<LineItem>>> GetLineItemsByReqId(int reqId)
+        {
+            var lineItems = await _context.LineItems.Include(c => c.Product)
+                                                    .Include(c => c.Request)
+                                                     .Where(l => l.RequestId == reqId).ToListAsync();
+
+
+            if (lineItems == null)
+            {
+                return NotFound();
+            }
+            return lineItems;
+        }
+
+        public async Task RecalculateTotal(int reqId)
+        {
+            var request = await _context.Requests.Where(r => r.Id == reqId).FirstOrDefaultAsync();
+
+            var lineItems = await _context.LineItems.Include(l => l.Product)
+                .Where(l => l.RequestId == reqId).ToListAsync();
+
+            decimal sum = 0;
+            foreach (var lineItem in lineItems)
+            {
+                if (lineItem.Product != null)
+                {
+                    sum += (lineItem.Product.Price * lineItem.Quantity);
+                }
+
+            }
+
+            request.Total = sum;
+
+            await _context.SaveChangesAsync();
+
+
+        }
+
+
+
 
         private bool LineItemExists(int id)
         {

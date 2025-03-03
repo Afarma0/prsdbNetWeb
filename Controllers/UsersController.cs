@@ -116,7 +116,6 @@ namespace prsdbNetWeb.Controllers
 
             return user;
 
-            return CreatedAtAction("GetUser", new { id = user.Id }, user);
         }
 
 
